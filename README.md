@@ -2,6 +2,8 @@
 2nd try at Tuple and List Munchers
 
 
+https://rhoded-uwp.github.io/Tuple_and_List_Munchers/
+
 
 # Python Munchers: Lists vs Tuples
 

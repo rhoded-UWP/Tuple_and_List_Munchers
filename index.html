@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Python Munchers: Lists vs Tuples</title>
+<style>
+  :root {
+    --bg: #000;
+    --grid: #c800c8;
+    --grid-glow: #ff3df0;
+    --orange: #ff8800;
+    --text: #ffffff;
+    --prompt: #ffe680;
+    --player: #00ff66;
+    --enemy: #ff66cc;
+    --score-border: #00bfff;
+    --good: #00ff66;
+    --bad: #ff3344;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Atkinson Hyperlegible", "Verdana", Arial, sans-serif;
+    overflow: hidden;
+    height: 100%;
+    user-select: none;
+  }
+
+  #game {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 16px;
+  }
+
+  .header {
+    width: 100%;
+    max-width: 900px;
+    text-align: center;
+    border-bottom: 3px solid var(--orange);
+    border-top: 3px solid var(--orange);
+    padding: 8px 0;
+    margin-bottom: 14px;
+    background: #000;
+  }
+
+  .title {
+    font-family: "Courier New", monospace;
+    font-weight: 900;
+    color: var(--orange);
+    letter-spacing: 2px;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+
+  .prompt {
+    color: var(--prompt);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+
+  .round-label {
+    color: #fff;
+    font-size: 14px;
+    font-family: "Courier New", monospace;
+    margin-top: 4px;
+  }
+
+  .grid-wrap {
+    position: relative;
+    background: #000;
+    padding: 0;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(5, 160px);
+    grid-template-rows: repeat(4, 110px);
+    gap: 0;
+    border: 3px solid var(--grid);
+    box-shadow: 0 0 18px var(--grid-glow), inset 0 0 12px rgba(255,61,240,0.25);
+  }
+
+  .cell {
+    position: relative;
+    border: 2px solid var(--grid);
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+    overflow: hidden;
+    transition: background-color 0.15s;
+  }
+
+  .cell.code {
+    font-family: "Consolas", "Menlo", "Courier New", monospace;
+    font-size: 17px;
+  }
+
+  .cell.empty {
+    color: transparent;
+  }
+
+  .cell.flash-good {
+    background: rgba(0, 255, 102, 0.55);
+  }
+
+  .cell.flash-bad {
+    background: rgba(255, 51, 68, 0.55);
+  }
+
+  .cell.current {
+    background: rgba(0, 255, 102, 0.10);
+    box-shadow: inset 0 0 0 3px rgba(0, 255, 102, 0.55);
+  }
+
+  .player, .enemy {
+    position: absolute;
+    pointer-events: none;
+    transition: left 0.08s linear, top 0.08s linear;
+    z-index: 5;
+  }
+
+  .player {
+    z-index: 6;
+  }
+
+  .player.invuln {
+    animation: blink 0.25s infinite alternate;
+  }
+
+  @keyframes blink {
+    from { opacity: 1; }
+    to { opacity: 0.35; }
+  }
+
+  .floating-score {
+    position: absolute;
+    color: var(--good);
+    font-weight: 900;
+    font-size: 20px;
+    pointer-events: none;
+    animation: floatUp 0.8s ease-out forwards;
+    z-index: 20;
+    text-shadow: 0 0 6px rgba(0,255,102,0.8);
+  }
+
+  .floating-score.bad {
+    color: var(--bad);
+    text-shadow: 0 0 6px rgba(255,51,68,0.8);
+  }
+
+  @keyframes floatUp {
+    from { transform: translateY(0); opacity: 1; }
+    to   { transform: translateY(-40px); opacity: 0; }
+  }
+
+  .hud {
+    margin-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 900px;
+    gap: 16px;
+  }
+
+  .hud-box {
+    border: 2px solid var(--score-border);
+    padding: 8px 14px;
+    background: #000;
+    font-family: "Courier New", monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 0 8px rgba(0,191,255,0.6);
+    min-width: 130px;
+    text-align: center;
+  }
+
+  .hud-box .label {
+    color: #00bfff;
+    display: block;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  .lives {
+    color: var(--player);
+    letter-spacing: 4px;
+  }
+
+  .feedback {
+    height: 28px;
+    margin-top: 8px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  .feedback.good { color: var(--good); }
+  .feedback.bad  { color: var(--bad); }
+
+  .controls {
+    margin-top: 10px;
+    color: #aaa;
+    font-size: 13px;
+    font-family: "Courier New", monospace;
+    text-align: center;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .overlay h1 {
+    color: var(--orange);
+    font-family: "Courier New", monospace;
+    font-size: 36px;
+    margin: 0 0 12px;
+    letter-spacing: 2px;
+  }
+
+  .overlay h2 {
+    color: var(--prompt);
+    font-size: 24px;
+    margin: 0 0 8px;
+  }
+
+  .overlay p {
+    font-size: 18px;
+    margin: 6px 0;
+    max-width: 600px;
+  }
+
+  .overlay .hint {
+    color: #00bfff;
+    font-family: "Courier New", monospace;
+    margin-top: 18px;
+    font-size: 16px;
+  }
+
+  .overlay.hidden { display: none; }
+
+  .round-banner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #000;
+    border: 4px solid var(--orange);
+    padding: 24px 48px;
+    color: var(--prompt);
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    z-index: 50;
+    box-shadow: 0 0 24px rgba(255,136,0,0.8);
+    text-align: center;
+  }
+
+  .round-banner small {
+    display: block;
+    color: #fff;
+    font-size: 18px;
+    margin-top: 6px;
+    letter-spacing: 1px;
+  }
+
+  .round-banner.hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="header">
+    <div class="title">PYTHON MUNCHERS — LISTS vs TUPLES</div>
+    <div class="prompt" id="prompt">Munch the Lists</div>
+    <div class="round-label" id="roundLabel">Round 1 of 4</div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="feedback" id="feedback">&nbsp;</div>
+
+  <div class="hud">
+    <div class="hud-box"><span class="label">SCORE</span><span id="score">0</span></div>
+    <div class="hud-box"><span class="label">LIVES</span><span class="lives" id="lives">●●●</span></div>
+    <div class="hud-box"><span class="label">ROUND</span><span id="roundHud">1 / 4</span></div>
+  </div>
+
+  <div class="controls">
+    Arrow keys to move &nbsp;•&nbsp; SPACE or ENTER to munch &nbsp;•&nbsp; R to restart
+  </div>
+</div>
+
+<div class="round-banner hidden" id="banner"></div>
+
+<div class="overlay" id="overlay">
+  <h1>PYTHON MUNCHERS</h1>
+  <h2>Lists vs Tuples</h2>
+  <p>You are the green muncher. Move with the arrow keys. Press <b>SPACE</b> or <b>ENTER</b> to munch the cell you are on.</p>
+  <p>Munch only the items that match the round's prompt. Watch out for the pink <b>Syntax Gremlins</b> — they will cost you a life on contact.</p>
+  <p>Wrong munch: <span style="color:#ff3344">−50 points and an extra gremlin appears.</span></p>
+  <p>Correct munch: <span style="color:#00ff66">+100 points.</span></p>
+  <p class="hint">Press ENTER or SPACE to start</p>
+</div>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="muncher" viewBox="0 0 64 64">
+      <!-- Pac-Man-style silhouette: rounded body with the mouth wedge cut out as one continuous path,
+           so no green line crosses the open mouth. Translucent fill keeps cell text readable. -->
+      <path d="M 60 16 L 32 32 L 60 48 L 60 51 A 9 9 0 0 1 51 60 L 13 60 A 9 9 0 0 1 4 51 L 4 13 A 9 9 0 0 1 13 4 L 51 4 A 9 9 0 0 1 60 13 Z"
+            fill="#00ff66" fill-opacity="0.18"
+            stroke="#00ff66" stroke-width="4"
+            stroke-linejoin="round" stroke-linecap="round"/>
+      <!-- Eye -->
+      <circle cx="20" cy="22" r="4" fill="#00ff66"/>
+      <circle cx="20" cy="22" r="1.5" fill="#000"/>
+    </symbol>
+    <symbol id="bug" viewBox="0 0 64 64">
+      <!-- Antennae -->
+      <line x1="22" y1="14" x2="16" y2="3"  stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="42" y1="14" x2="48" y2="3"  stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="16" cy="3" r="2" fill="#000"/>
+      <circle cx="48" cy="3" r="2" fill="#000"/>
+      <!-- Body shell -->
+      <ellipse cx="32" cy="36" rx="26" ry="22" fill="#e6193c" stroke="#000" stroke-width="2.5"/>
+      <!-- Wing seam -->
+      <line x1="32" y1="20" x2="32" y2="56" stroke="#000" stroke-width="2.5"/>
+      <!-- Spots -->
+      <circle cx="20" cy="30" r="3.5" fill="#000"/>
+      <circle cx="44" cy="30" r="3.5" fill="#000"/>
+      <circle cx="22" cy="46" r="3"   fill="#000"/>
+      <circle cx="42" cy="46" r="3"   fill="#000"/>
+      <!-- Head -->
+      <ellipse cx="32" cy="17" rx="11" ry="7" fill="#000"/>
+      <circle cx="28" cy="16" r="1.6" fill="#fff"/>
+      <circle cx="36" cy="16" r="1.6" fill="#fff"/>
+    </symbol>
+  </defs>
+</svg>
+
+<script>
+"use strict";
+
+const COLS = 5;
+const ROWS = 4;
+const TOTAL = COLS * ROWS;
+const ROUNDS = ["List", "Tuple"];
+const ENEMY_INTERVAL_MS = 1100;
+const MAX_ENEMIES = 3;
+const INVULN_MS = 1500;
+const FLASH_MS = 350;
+
+const ITEM_BANK = [
+  // List-only
+  { text: "x = [1, 2, 3]", code: true,  categories: ["List"] },
+  { text: "[ ]",            code: true,  categories: ["List"] },
+  { text: "[10, 20]",       code: true,  categories: ["List"] },
+  { text: "x.append(4)",    code: true,  categories: ["List"] },
+  { text: "x.sort()",       code: true,  categories: ["List"] },
+  { text: "x.pop()",        code: true,  categories: ["List"] },
+  { text: "x[0] = 99",      code: true,  categories: ["List"] },
+  { text: "list()",         code: true,  categories: ["List"] },
+  { text: "mutable",        code: false, categories: ["List"] },
+  { text: "uses [ ]",       code: false, categories: ["List"] },
+  { text: "can change values", code: false, categories: ["List"] },
+
+  // Tuple-only
+  { text: "y = (1, 2, 3)",  code: true,  categories: ["Tuple"] },
+  { text: "( )",            code: true,  categories: ["Tuple"] },
+  { text: "(10, 20)",       code: true,  categories: ["Tuple"] },
+  { text: "tuple()",        code: true,  categories: ["Tuple"] },
+  { text: "immutable",      code: false, categories: ["Tuple"] },
+  { text: "uses ( )",       code: false, categories: ["Tuple"] },
+  { text: "cannot change values", code: false, categories: ["Tuple"] },
+  { text: "fixed after creation", code: false, categories: ["Tuple"] },
+  { text: "uses less memory",     code: false, categories: ["Tuple"] },
+  { text: "executes fast",        code: false, categories: ["Tuple"] },
+
+  // Shared
+  { text: "ordered",   code: false, categories: ["List", "Tuple"] },
+  { text: "indexable", code: false, categories: ["List", "Tuple"] }
+];
+
+const state = {
+  score: 0,
+  lives: 3,
+  roundIdx: 0,
+  category: "List",
+  cells: [],            // { item, munched, el }
+  player: { c: 0, r: 0 },
+  enemies: [],          // { c, r, el }
+  invuln: false,
+  enemyTimer: null,
+  remainingCorrect: 0,
+  running: false,
+  banner: false
+};
+
+const gridEl     = document.getElementById("grid");
+const promptEl   = document.getElementById("prompt");
+const roundLblEl = document.getElementById("roundLabel");
+const scoreEl    = document.getElementById("score");
+const livesEl    = document.getElementById("lives");
+const roundHudEl = document.getElementById("roundHud");
+const feedbackEl = document.getElementById("feedback");
+const overlayEl  = document.getElementById("overlay");
+const bannerEl   = document.getElementById("banner");
+
+const VAR_NAMES   = ["a", "b", "c", "d", "p", "q", "s", "t", "nums", "data", "pts"];
+const SCALAR_VALS = ["1", "2", "3", "5", "7", "10", "20", "42", '"a"', '"b"', '"x"', "True", "False"];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function sampleN(arr, n) {
+  const copy = arr.slice();
+  shuffle(copy);
+  return copy.slice(0, n);
+}
+
+function generateListItem() {
+  const v = pick(VAR_NAMES);
+  const n = 2 + Math.floor(Math.random() * 3); // 2-4 elements
+  const vals = sampleN(SCALAR_VALS, n).join(", ");
+  return { text: `${v} = [${vals}]`, code: true, categories: ["List"] };
+}
+
+function generateTupleItem() {
+  const v = pick(VAR_NAMES);
+  const n = 2 + Math.floor(Math.random() * 3);
+  const vals = sampleN(SCALAR_VALS, n).join(", ");
+  return { text: `${v} = (${vals})`, code: true, categories: ["Tuple"] };
+}
+
+function generateSharedItem() {
+  // These work on both lists and tuples — incorrect to munch in either round.
+  const v = pick(VAR_NAMES);
+  const x = pick(VAR_NAMES);
+  const kinds = [
+    () => ({ text: `${v} = len(${x})`,    code: true, categories: ["List", "Tuple"] }),
+    () => ({ text: `${x}[0]`,              code: true, categories: ["List", "Tuple"] }),
+    () => ({ text: `${v} = ${x}[1]`,       code: true, categories: ["List", "Tuple"] }),
+    () => ({ text: `if ${pick(SCALAR_VALS)} in ${x}:`, code: true, categories: ["List", "Tuple"] })
+  ];
+  return pick(kinds)();
+}
+
+function generatePool(count, kind) {
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    if (kind === "List")  out.push(generateListItem());
+    else if (kind === "Tuple") out.push(generateTupleItem());
+    else out.push(generateSharedItem());
+  }
+  return out;
+}
+
+function pickRoundItems(category) {
+  // Combine the curated bank with freshly generated items so every round feels new.
+  const generated = [
+    ...generatePool(8, "List"),
+    ...generatePool(8, "Tuple"),
+    ...generatePool(4, "Shared")
+  ];
+  const fullBank = ITEM_BANK.concat(generated);
+
+  const correctPool = fullBank.filter(i => i.categories.includes(category));
+  // Wrong = items that are NOT in the current category. Shared items count as correct, not wrong.
+  const wrongPool   = fullBank.filter(i => !i.categories.includes(category));
+
+  const correctCount = 9; // 8-10 correct
+  const wrongCount   = TOTAL - correctCount;
+
+  const correct = sampleN(correctPool, Math.min(correctCount, correctPool.length));
+  const wrong   = sampleN(wrongPool, wrongCount);
+
+  return shuffle(correct.concat(wrong)).slice(0, TOTAL);
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function buildBoard() {
+  gridEl.innerHTML = "";
+  state.cells = [];
+  state.remainingCorrect = 0;
+
+  const items = pickRoundItems(state.category);
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const idx = r * COLS + c;
+      const item = items[idx];
+      const cellEl = document.createElement("div");
+      cellEl.className = "cell" + (item.code ? " code" : "");
+      cellEl.dataset.r = r;
+      cellEl.dataset.c = c;
+      cellEl.textContent = item.text;
+      gridEl.appendChild(cellEl);
+
+      const isCorrect = item.categories.includes(state.category);
+      if (isCorrect) state.remainingCorrect++;
+
+      state.cells.push({
+        item,
+        munched: false,
+        correct: isCorrect,
+        el: cellEl
+      });
+    }
+  }
+}
+
+function placePlayer() {
+  state.player = { c: 0, r: 0 };
+  let p = document.querySelector(".player");
+  if (!p) {
+    p = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    p.setAttribute("class", "player");
+    p.setAttribute("viewBox", "0 0 64 64");
+    p.innerHTML = '<use href="#muncher"/>';
+    gridEl.parentElement.appendChild(p);
+  }
+  positionEntity(p, state.player.c, state.player.r);
+  highlightCurrentCell();
+}
+
+function highlightCurrentCell() {
+  for (const cell of state.cells) cell.el.classList.remove("current");
+  const idx = state.player.r * COLS + state.player.c;
+  if (state.cells[idx]) state.cells[idx].el.classList.add("current");
+}
+
+function positionEntity(svgEl, c, r) {
+  const cell = state.cells[r * COLS + c].el;
+  const rect = cell.getBoundingClientRect();
+  const wrapRect = gridEl.parentElement.getBoundingClientRect();
+  const size = Math.min(rect.width, rect.height) * 0.7;
+  svgEl.setAttribute("width", size);
+  svgEl.setAttribute("height", size);
+  svgEl.style.left = (rect.left - wrapRect.left + (rect.width - size) / 2) + "px";
+  svgEl.style.top  = (rect.top  - wrapRect.top  + (rect.height - size) / 2) + "px";
+}
+
+function spawnEnemy(awayFromPlayer = true) {
+  if (state.enemies.length >= MAX_ENEMIES) return;
+
+  let c, r, tries = 0;
+  do {
+    c = Math.floor(Math.random() * COLS);
+    r = Math.floor(Math.random() * ROWS);
+    tries++;
+  } while (
+    tries < 50 &&
+    awayFromPlayer &&
+    Math.abs(c - state.player.c) + Math.abs(r - state.player.r) < 3
+  );
+
+  const el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  el.setAttribute("class", "enemy");
+  el.setAttribute("viewBox", "0 0 64 64");
+  el.innerHTML = '<use href="#bug"/>';
+  gridEl.parentElement.appendChild(el);
+
+  const enemy = { c, r, el };
+  state.enemies.push(enemy);
+  positionEntity(el, c, r);
+}
+
+function moveEnemies() {
+  for (const e of state.enemies) {
+    const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+    const choices = shuffle(dirs.slice());
+    let moved = false;
+    for (const [dc, dr] of choices) {
+      const nc = e.c + dc;
+      const nr = e.r + dr;
+      if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+      // Bias toward player ~40% of the time
+      const towardPlayer =
+        Math.sign(state.player.c - e.c) === dc ||
+        Math.sign(state.player.r - e.r) === dr;
+      if (Math.random() < 0.55 || towardPlayer) {
+        e.c = nc;
+        e.r = nr;
+        moved = true;
+        break;
+      }
+    }
+    if (!moved) {
+      const [dc, dr] = choices[0];
+      const nc = e.c + dc;
+      const nr = e.r + dr;
+      if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS) {
+        e.c = nc; e.r = nr;
+      }
+    }
+    positionEntity(e.el, e.c, e.r);
+  }
+  checkCollision();
+}
+
+function checkCollision() {
+  if (state.invuln) return;
+  for (const e of state.enemies) {
+    if (e.c === state.player.c && e.r === state.player.r) {
+      loseLife();
+      return;
+    }
+  }
+}
+
+function loseLife() {
+  state.lives--;
+  updateHud();
+  if (state.lives <= 0) {
+    gameOver();
+    return;
+  }
+  // Reset player to a safe corner
+  state.player = { c: 0, r: 0 };
+  const p = document.querySelector(".player");
+  positionEntity(p, state.player.c, state.player.r);
+  highlightCurrentCell();
+  setInvulnerable();
+  showFeedback("Ouch! Watch the Gremlins!", "bad");
+}
+
+function setInvulnerable() {
+  state.invuln = true;
+  const p = document.querySelector(".player");
+  p.classList.add("invuln");
+  setTimeout(() => {
+    state.invuln = false;
+    p.classList.remove("invuln");
+  }, INVULN_MS);
+}
+
+function tryMunch() {
+  if (!state.running) return;
+  const idx = state.player.r * COLS + state.player.c;
+  const cell = state.cells[idx];
+  if (cell.munched) return;
+
+  if (cell.correct) {
+    state.score += 100;
+    cell.munched = true;
+    cell.el.classList.add("flash-good");
+    floatScore(cell.el, "+100", false);
+    setTimeout(() => {
+      cell.el.classList.remove("flash-good");
+      cell.el.textContent = "";
+      cell.el.classList.add("empty");
+    }, FLASH_MS);
+    state.remainingCorrect--;
+    showFeedback("Correct!", "good");
+    if (state.remainingCorrect === 0) {
+      finishRound();
+    }
+  } else {
+    state.score = Math.max(0, state.score - 50);
+    cell.el.classList.add("flash-bad");
+    floatScore(cell.el, "-50", true);
+    setTimeout(() => cell.el.classList.remove("flash-bad"), FLASH_MS);
+    showFeedback(state.category === "List" ? "Not a List!" : "Not a Tuple!", "bad");
+    spawnEnemy(true);
+  }
+  updateHud();
+}
+
+function floatScore(cellEl, text, bad) {
+  const f = document.createElement("div");
+  f.className = "floating-score" + (bad ? " bad" : "");
+  f.textContent = text;
+  const rect = cellEl.getBoundingClientRect();
+  const wrapRect = gridEl.parentElement.getBoundingClientRect();
+  f.style.left = (rect.left - wrapRect.left + rect.width / 2 - 20) + "px";
+  f.style.top  = (rect.top  - wrapRect.top  + 10) + "px";
+  gridEl.parentElement.appendChild(f);
+  setTimeout(() => f.remove(), 800);
+}
+
+function showFeedback(text, kind) {
+  feedbackEl.textContent = text;
+  feedbackEl.className = "feedback " + (kind || "");
+  clearTimeout(showFeedback._t);
+  showFeedback._t = setTimeout(() => {
+    feedbackEl.textContent = " ";
+    feedbackEl.className = "feedback";
+  }, 1200);
+}
+
+function updateHud() {
+  scoreEl.textContent = state.score;
+  livesEl.textContent = "●".repeat(Math.max(0, state.lives)) || "—";
+  roundHudEl.textContent = (state.roundIdx + 1) + " / " + ROUNDS.length;
+}
+
+function finishRound() {
+  state.running = false;
+  clearInterval(state.enemyTimer);
+  showBanner("Round Complete!", "Score: " + state.score, () => {
+    state.roundIdx++;
+    if (state.roundIdx >= ROUNDS.length) {
+      finalScreen();
+    } else {
+      startRound();
+    }
+  });
+}
+
+function showBanner(big, small, after) {
+  bannerEl.classList.remove("hidden");
+  bannerEl.innerHTML = big + (small ? '<small>' + small + '</small>' : '');
+  state.banner = true;
+  setTimeout(() => {
+    bannerEl.classList.add("hidden");
+    state.banner = false;
+    if (after) after();
+  }, 1500);
+}
+
+function startRound() {
+  state.category = ROUNDS[state.roundIdx];
+  promptEl.textContent = state.category === "List" ? "Munch the Lists" : "Munch the Tuples";
+  roundLblEl.textContent = "Round " + (state.roundIdx + 1) + " of " + ROUNDS.length;
+  updateHud();
+
+  // Clear old enemies
+  for (const e of state.enemies) e.el.remove();
+  state.enemies = [];
+
+  buildBoard();
+  placePlayer();
+
+  // Defer entity placement until layout settles
+  requestAnimationFrame(() => {
+    const p = document.querySelector(".player");
+    positionEntity(p, state.player.c, state.player.r);
+  });
+
+  showBanner("Round " + (state.roundIdx + 1), "Munch the " + state.category + "s", () => {
+    spawnEnemy(true);
+    state.running = true;
+    setInvulnerable();
+    if (state.enemyTimer) clearInterval(state.enemyTimer);
+    state.enemyTimer = setInterval(() => {
+      if (state.running) moveEnemies();
+    }, ENEMY_INTERVAL_MS);
+  });
+}
+
+function finalScreen() {
+  state.running = false;
+  clearInterval(state.enemyTimer);
+  overlayEl.classList.remove("hidden");
+  overlayEl.innerHTML = `
+    <h1>EXIT TICKET COMPLETE!</h1>
+    <h2>Final Score: ${state.score}</h2>
+    <p>Nice work telling lists from tuples.</p>
+    <p style="margin-top:18px">Paste this passcode into your Canvas Quiz:</p>
+    <div style="display:flex; gap:10px; align-items:center; justify-content:center; margin-top:8px; flex-wrap:wrap">
+      <code id="passcode"
+            style="font-family:'Consolas','Menlo','Courier New',monospace; font-size:26px; font-weight:700;
+                   background:#000; color:#ffe680; border:2px solid #00bfff; padding:10px 18px;
+                   letter-spacing:1px; user-select:all; cursor:text">Tuples_R_Fast!</code>
+      <button id="copyBtn" type="button"
+              style="font-family:'Courier New',monospace; font-size:16px; font-weight:700;
+                     background:#00bfff; color:#000; border:none; padding:11px 18px;
+                     cursor:pointer; letter-spacing:1px">COPY</button>
+    </div>
+    <p id="copyMsg" style="color:#00ff66; height:20px; margin-top:6px; font-family:'Courier New',monospace">&nbsp;</p>
+    <p class="hint">Press R to play again</p>
+  `;
+
+  const btn = document.getElementById("copyBtn");
+  const msg = document.getElementById("copyMsg");
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText("Tuples_R_Fast!");
+      msg.textContent = "Copied to clipboard!";
+    } catch {
+      // Fallback: select the code so the student can Ctrl+C
+      const range = document.createRange();
+      range.selectNodeContents(document.getElementById("passcode"));
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      msg.textContent = "Selected — press Ctrl+C to copy";
+    }
+  });
+}
+
+function gameOver() {
+  state.running = false;
+  clearInterval(state.enemyTimer);
+  overlayEl.classList.remove("hidden");
+  overlayEl.innerHTML = `
+    <h1 style="color:#ff3344">GAME OVER</h1>
+    <h2>Final Score: ${state.score}</h2>
+    <p>The Syntax Gremlins got you!</p>
+    <p class="hint">Press R to restart</p>
+  `;
+}
+
+function startGame() {
+  state.score = 0;
+  state.lives = 3;
+  state.roundIdx = 0;
+  overlayEl.classList.add("hidden");
+  startRound();
+}
+
+function movePlayer(dc, dr) {
+  if (!state.running || state.banner) return;
+  const nc = state.player.c + dc;
+  const nr = state.player.r + dr;
+  if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) return;
+  state.player.c = nc;
+  state.player.r = nr;
+  const p = document.querySelector(".player");
+  positionEntity(p, nc, nr);
+  highlightCurrentCell();
+  checkCollision();
+}
+
+document.addEventListener("keydown", (e) => {
+  const overlayVisible = !overlayEl.classList.contains("hidden");
+
+  if (overlayVisible) {
+    if (e.key === "Enter" || e.key === " " || e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      startGame();
+    }
+    return;
+  }
+
+  if (e.key === "r" || e.key === "R") {
+    e.preventDefault();
+    startGame();
+    return;
+  }
+
+  switch (e.key) {
+    case "ArrowUp":    e.preventDefault(); movePlayer(0, -1); break;
+    case "ArrowDown":  e.preventDefault(); movePlayer(0,  1); break;
+    case "ArrowLeft":  e.preventDefault(); movePlayer(-1, 0); break;
+    case "ArrowRight": e.preventDefault(); movePlayer(1,  0); break;
+    case " ":
+    case "Enter":
+      e.preventDefault();
+      tryMunch();
+      break;
+  }
+});
+
+window.addEventListener("resize", () => {
+  const p = document.querySelector(".player");
+  if (p) positionEntity(p, state.player.c, state.player.r);
+  for (const e of state.enemies) positionEntity(e.el, e.c, e.r);
+});
+
+// Show start overlay; game begins on first keypress.
+updateHud();
+</script>
+</body>
+</html>
